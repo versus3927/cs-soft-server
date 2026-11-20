@@ -31,6 +31,33 @@ PORT=3000 npm start
 
 > Проверка, что сервер поднялся: `curl http://localhost:3000/health` → `{"ok":true,...}`
 
+
+## Деплой на Railway (пошагово)
+
+1. Зайди на [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub repo** → выбери `versus3927/cs-soft-server`.
+2. Если проект спросит ветку — бери **main** (после мержа PR с кодом) или ветку `arena/d9485506-cs-soft-server`.
+3. Railway сам соберёт Node-проект (`npm install`, `npm start`) — `railway.toml` уже в репозитории, healthcheck стоит на `/health`.
+4. Вкладка **Variables** — **ничего добавлять не нужно**: `PORT` Railway подставляет сам, остальное работает на дефолтах. Если хочешь свои настройки, добавь, например:
+   - `ROUND_TIME=45`
+   - `DOUBLE_SOFT_CHANCE=0.5`
+   - `MAX_PLAYERS=20`
+5. Вкладка **Settings → Networking** → **Generate Domain** → получишь ссылку вида `https://cs-soft-server-production.up.railway.app`. Открывай её и играй — заходить можно с телефона и с любого компьютера.
+6. Обновить игру после правок: просто `git push` в ту ветку, которую деплоит Railway — пересборка автоматическая.
+
+Проверка, что сервер живой: открой `https://твой-домен.up.railway.app/health` — должен вернуться `{"ok":true,...}`.
+
+**Важно про Railway:** не задавай `PORT` вручную и не меняй `HOST` — платформа сама передаёт порт и проксирует на него трафик. Сервер уже слушает `0.0.0.0`.
+
+**Альтернатива без GitHub-мержа** (деплой прямо из этой ветки локально):
+
+```bash
+npm i -g @railway/cli
+railway login
+railway init
+railway up
+railway domain
+```
+
 ## Управление
 
 | Действие | Клавиша |
