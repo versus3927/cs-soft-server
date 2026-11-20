@@ -58,6 +58,14 @@ else
   say ".env уже есть, не трогаю"
 fi
 
+# ── Настройка под вариант хостинга ──
+if [[ "${1:-}" == "--playit" ]]; then
+  CPFILE="docker-compose.playit.yml"
+  say "режим playit.gg: публичный IP не нужен, трафик пойдёт через туннель"
+else
+  CPFILE="docker-compose.yml"
+fi
+
 # ── 5. Публичный IP для подсказки ──
 IP=$(curl -4 -s --max-time 5 https://ifconfig.me || echo "IP.IP.IP.IP")
 
@@ -72,15 +80,14 @@ $(say "почти готово") Что делать дальше:
     nano $(pwd)/.env     →  SRCDS_TOKEN="твой_токен"
 
  3) Запусти:
-    cd $(pwd) && docker compose up -d
-    docker compose logs -f cs2      # первый старт качает ~60 ГБ
+    cd $(pwd) && docker compose -f ${CPFILE} up -d
+    docker compose -f ${CPFILE} logs -f cs2    # первый старт качает ~60 ГБ
 
  4) Когда в логе появится "GameServerSteamAPIActivated", заходи в CS2:
     открыть консоль (~) и ввести:
 
         connect ${IP}:27015
 
-    (проверь, что хостинг не съел порт: docker compose ps)
 
  5) Плагин софтов (опционально, см. PLUGIN.md в этой папке) кладётся в
     ./data/game/csgo/addons/counterstrikesharp/plugins/CsSoft/
