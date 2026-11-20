@@ -1,0 +1,12 @@
+# ~60 ГБ файлов игрового сервера не тащим в git,
+# но server.cfg из репозитория должен попадать в образ
+data/*
+!data/game
+data/game/*
+!data/game/csgo
+data/game/csgo/*
+!data/game/csgo/cfg
+data/game/csgo/cfg/*
+!data/game/csgo/cfg/server.cfg
+
+.env

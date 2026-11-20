@@ -145,6 +145,21 @@ function rollSofts() {
   return [first];
 }
 
+// Краткая механика софта — нужна плагину CS2 для генерации .cfg на каждый раунд
+const PLUGIN_MECHANIC = {
+  aimbot: 'aim_dot: прицел прилипает к врагу, скрытая точка в центре экрана',
+  wallhack: 'wh: силуэты врагов сквозь стены',
+  rapidfire: 'rapid: оружие стреляет очередью x3',
+  norecoil: 'no_recoil: нулевой разброс даже в движении',
+  bhop: 'bhop: авто-прыжок, разгон без потери скорости',
+  triggerbot: 'trigger: выстрел в момент, когда враг под прицелом',
+  speedhack: 'speed: +55% к скорости бега',
+  radar: 'radar: враги видны на радаре',
+  infammo: 'inf_ammo: магазин не кончается',
+  onehit: 'dmg2: урон x2',
+  spinbot: 'spin: прицел крутится на 360°, попадания случайные',
+};
+
 function publicCatalog() {
   return LIST.map((s) => ({
     id: s.id,
@@ -156,6 +171,7 @@ function publicCatalog() {
     desc: s.desc,
     icon: s.icon,
     weight: s.weight,
+    mechanic: PLUGIN_MECHANIC[s.id] || '',
   }));
 }
 
@@ -168,4 +184,5 @@ module.exports = {
   publicCatalog,
   setDoubleSoftChance,
   getDoubleSoftChance,
+  PLUGIN_MECHANIC,
 };

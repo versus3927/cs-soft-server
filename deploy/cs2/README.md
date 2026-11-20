@@ -1,0 +1,178 @@
+# Деплой настоящего CS2-сервера и ссылка `connect IP:27015`
+
+Здесь лежит всё для реального выделенного сервера Counter-Strike 2 (Source 2, Steam App 730)
+и плагина, который каждый раунд раздаёт игрокам случайный софт.
+
+## Что получится
+
+После деплоя ты получаешь адрес вида:
+
+```
+connect 185.12.34.56:27015
+```
+
+Его вводят в консоль CS2 (клавиша `~`). Сервер виден в браузере серверов, если задан GSLT.
+
+## Что нужно (и почему Railway не подойдёт)
+
+| Требование | Значение | Почему |
+|---|---|---|
+| ОС | Ubuntu 22.04 / 24.04 (или Debian 12) | бинарник CS2 — Linux x86-64 |
+| RAM | 4–8 ГБ | один матч на 10–12 человек |
+| Диск | 80 ГБ NVMe | SteamCMD качает ~60 ГБ, плюс обновления и демки |
+| Сеть | публичный IPv4, **27015/udp + tcp** | игровой протокол идёт по UDP |
+| Steam | аккаунт с CS2 в библиотеке | без него не выдадут GSLT-токен |
+
+**Railway / Render / Heroku не подходят:** там нет UDP-порта и нет 60 ГБ диска под образ.
+Нужен VPS. Подойдёт любой: Hetzner (CX32, ~€7/мес), Contabo, Timeweb Cloud, Aeza, VDSina,
+или готовый игровой хостинг с поддержкой CS2.
+
+## Шаг 1. VPS
+
+Закажи Ubuntu 24.04, 4+ ГБ RAM, 80 ГБ NVMe, публичный IPv4. Запиши IP — он и станет адресом сервера.
+
+## Шаг 2. Установка (одна команда)
+
+```bash
+ssh root@ТВОЙ_IP
+apt-get update && apt-get install -y git
+git clone https://github.com/versus3927/cs-soft-server.git
+cd cs-soft-server
+git checkout main          # или arena/d9485506-cs-soft-server
+bash deploy/cs2/install.sh
+```
+
+Скрипт поставит Docker, откроет порты в ufw, создаст `.env` и сгенерирует секретный токен моста.
+
+## Шаг 3. GSLT-токен (обязательно для публичного сервера)
+
+1. Открой <https://steamcommunity.com/dev/managegameservers>, войди в Steam.
+2. **App ID**: `730`, Memo: любое имя сервера.
+3. Скопируй 32-символьный токен и впиши в конфиг:
+
+```bash
+cd cs-soft-server/deploy/cs2
+nano .env        # SRCDS_TOKEN="твой_токен"
+```
+
+Без токена сервер запустится, но будет виден только в локальной сети (`sv_lan`).
+
+## Шаг 4. Запуск
+
+```bash
+cd cs-soft-server/deploy/cs2
+docker compose up -d
+docker compose logs -f cs2
+```
+
+Первый запуск качает ~60 ГБ (10–40 минут). Готовность видно по строке
+`GameServerSteamAPIActivated` в логах.
+
+## Шаг 5. Подключение
+
+В CS2: **Настройки → Игра → Включить консоль разработчика**, затем `~`:
+
+```
+connect ТВОЙ_IP:27015
+```
+
+Пароль на вход, если задал `CS2_PW`:
+
+```
+connect ТВОЙ_IP:27015; password твой_пароль
+```
+
+Друзьям даёшь эту же строку. Сервер также появится в браузере серверов по имени
+`CS2 SOFT SERVER | рандомный софт каждый раунд`.
+
+## Плагин «рандомный софт каждый раунд»
+
+Схема:
+
+```
+┌─────────────┐   GET /api/round/current    ┌──────────────┐
+│  cs-soft    │ ◀────────────────────────── │  CsSoft.dll  │
+│  (Node)     │ ──────────────────────────▶ │  (CS2)       │
+└─────────────┘   POST /api/admin {round}    └──────────────┘
+   бросает софт         «раунд начался»        применяет на сервере
+```
+
+Мост `cs-soft` уже описан в `docker-compose.yml` — он поднимается вместе с CS2 и наружу не смотрит.
+
+### Сборка и установка плагина
+
+Нужны **CounterStrikeSharp** (Metamod-плагин) и .NET 8 SDK.
+
+```bash
+# 1) CounterStrikeSharp на сервер
+mkdir -p data/game/csgo/addons
+cd data/game/csgo/addons
+# скачай последний release: https://github.com/roflmuffin/CounterStrikeSharp/releases
+# распакуй так, чтобы был путь addons/counterstrikesharp/
+
+# 2) сборка плагина (на своей машине или на VPS)
+cd ../../../cs2-soft-plugin
+export CSHARP_PATH=/путь/до/addons/counterstrikesharp/api
+dotnet build -c Release
+
+# 3) копирование на сервер
+mkdir -p ../../data/game/csgo/addons/counterstrikesharp/plugins/CsSoft
+cp bin/Release/net8.0/CsSoft.dll ../../data/game/csgo/addons/counterstrikesharp/plugins/CsSoft/
+```
+
+Токен и адрес моста плагин берёт из переменных окружения контейнера
+(`CS_SOFT_BRIDGE`, `CS_SOFT_TOKEN`) — они уже прописаны в compose и берут `ROUNDS_TOKEN` из `.env`.
+
+Перезапуск после установки: `docker compose restart cs2`.
+
+### Команды в игре
+
+| Команда | Что делает |
+|---|---|
+| `css_soft` | показать, что выпало (софт уже в чате) |
+| `css_soft reroll` | перебросить софты всем |
+
+Каждый новый раунд в чат печатается дроп:
+
+```
+── РАУНД 4 — новый дроп софтов ──
+Neo: AIMBOT
+Trinity: SPEEDHACK + RADAR
+Morpheus: BANIHOP
+```
+
+## Честно о том, что реально работает на Source 2
+
+| Софт | Как реализуется на настоящем CS2 |
+|---|---|
+| SPEEDHACK, BANIHOP | `sv_accelerate`, `sv_air_accelerate`, авто-прыжок — работает серверно |
+| БЕСКОНЕЧНЫЕ ПАТРОНЫ | выдача оружия/денег через плагин — работает |
+| РАДАР | `mp_radar_showall` — работает |
+| БЫСТРАЯ СТРЕЛЬБА | эмуляция через ускорение темпа (`host_timescale`) — влияет на весь сервер |
+| ДВОЙНОЙ УРОН | перехват урона в плагине — требует доработки хука `player_hurt` |
+| AIMBOT, TRIGGERBOT, WALLHACK | на сервере не форсируются: это клиентские вещи. Реализуются клиентским слоем (точка-оверлей, автонаведение), в плагине помечены как активные |
+
+То есть админ-механики (скорость, прыжки, патроны, радар) плагин делает честно,
+а аим/вх — это то, что игрок включает на своей стороне. В браузерной версии из корня репозитория
+все 11 софтов работают полностью, потому что там свой движок.
+
+## Обновление CS2
+
+Образ обновляет игру сам при старте контейнера:
+
+```bash
+docker compose restart cs2
+```
+
+Если Valve выпустил большой патч — проверь место: `df -h`.
+
+## Полезное
+
+```bash
+docker compose logs -f cs2      # логи игры
+docker compose logs -f cs-soft  # логи моста
+docker compose ps               # живы ли контейнеры
+docker compose down             # остановить
+```
+
+RCON из клиента: `rcon_password твой_пароль` → `rcon status`.

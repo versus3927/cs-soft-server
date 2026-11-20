@@ -1,7 +1,7 @@
 'use strict';
 
 const map = require('./map');
-const { SOFTS, rollSofts, setDoubleSoftChance } = require('./softs');
+const { SOFTS, rollSofts, setDoubleSoftChance, PLUGIN_MECHANIC } = require('./softs');
 const { CONFIG } = require('./config');
 
 const CFG = {
@@ -106,6 +106,11 @@ class Game {
     this.lastSpawns = [];
     this.tickAcc = 0;
     this.lastTime = Date.now();
+    // история раздачи софтов по раундам — её забирает CS2-плагин
+    this.history = [];
+    this.maxHistory = 50;
+    // true — раунды двигает CS2-плагин через /api/admin, а не внутренний таймер
+    this.externalRounds = false;
 
     setInterval(() => this.loop(), 1000 / CFG.TICK);
   }
@@ -151,6 +156,7 @@ class Game {
     this.assignSpawn(p);
     this.giveSofts(p, false);
     this.pushEvent({ type: 'join', name: p.name, color: p.color });
+    this.syncHistoryPlayers();
     socket.emit('welcome', {
       id: p.id,
       name: p.name,
@@ -183,6 +189,7 @@ class Game {
     if (!p) return;
     this.players.delete(id);
     this.pushEvent({ type: 'leave', name: p.name, color: p.color });
+    this.syncHistoryPlayers();
   }
 
   assignSpawn(p) {
@@ -210,6 +217,43 @@ class Game {
       p.x = s.x;
       p.y = s.y;
     }
+  }
+
+  syncHistoryPlayers() {
+    // состав мог измениться (кто-то зашёл/вышел) — обновляем текущую запись
+    const entry = this.history[this.history.length - 1];
+    if (!entry || entry.round !== this.round) return;
+    entry.players = [...this.players.values()].map((p) => ({
+      id: p.id,
+      name: p.name,
+      softs: p.softs.map((id) => ({
+        id,
+        name: SOFTS[id].name,
+        rarity: SOFTS[id].rarity,
+        mechanic: PLUGIN_MECHANIC[id] || '',
+      })),
+    }));
+  }
+
+  recordHistory() {
+    if (this.players.size === 0) return null;
+    const entry = {
+      round: this.round,
+      at: new Date().toISOString(),
+      players: [...this.players.values()].map((p) => ({
+        id: p.id,
+        name: p.name,
+        softs: p.softs.map((id) => ({
+          id,
+          name: SOFTS[id].name,
+          rarity: SOFTS[id].rarity,
+          mechanic: PLUGIN_MECHANIC[id] || '',
+        })),
+      })),
+    };
+    this.history.push(entry);
+    if (this.history.length > this.maxHistory) this.history.shift();
+    return entry;
   }
 
   giveSofts(p, announce) {
@@ -295,8 +339,10 @@ class Game {
     dt = clamp(dt, 0, 0.1);
 
     this.timer -= dt;
-    if (this.state === 'intermission' && this.timer <= 0) this.startRound();
-    else if (this.state === 'live' && this.timer <= 0) this.endRound();
+    if (!this.externalRounds) {
+      if (this.state === 'intermission' && this.timer <= 0) this.startRound();
+      else if (this.state === 'live' && this.timer <= 0) this.endRound();
+    }
 
     this.update(dt);
 
@@ -324,6 +370,7 @@ class Game {
       this.assignSpawn(p);
       this.giveSofts(p, false);
     }
+    this.recordHistory();
     this.io.emit('roundStart', { round: this.round, time: CFG.ROUND_TIME });
     this.pushEvent({ type: 'round', round: this.round });
   }
@@ -518,6 +565,81 @@ class Game {
           softs: killer.softs.map((id) => SOFTS[id].name),
         });
       }
+    }
+  }
+
+  // ---------- админ-команды для CS2-плагина ----------
+  adminCommand(cmd) {
+    const action = cmd && cmd.action;
+    switch (action) {
+      // плагин говорит: «раунды веду я, у меня своя карта и свой таймер»
+      case 'attach': {
+        this.externalRounds = true;
+        return { ok: true, externalRounds: true, round: this.round };
+      }
+      case 'detach': {
+        this.externalRounds = false;
+        return { ok: true, externalRounds: false, round: this.round };
+      }
+      // плагин сообщил, что на карте начался раунд: перебрасываем софты
+      case 'round': {
+        this.externalRounds = true;
+        this.round = Number(cmd.round) || this.round + 1;
+        this.state = 'live';
+        for (const p of this.players.values()) {
+          p.roundKills = 0;
+          this.giveSofts(p, false);
+          this.sendSofts(p, false);
+        }
+        const entry = this.recordHistory();
+        this.io.emit('roundStart', { round: this.round, time: 0, external: true });
+        return { ok: true, round: this.round, entry: entry !== null };
+      }
+      case 'nextround': {
+        // на пустом сервере (плагин стартует раньше игроков) просто стартуем раунд
+        if (this.state === 'live') this.endRound();
+        if (this.players.size === 0) {
+          this.round++;
+          this.state = 'live';
+          this.timer = CFG.ROUND_TIME;
+        } else {
+          this.startRound();
+        }
+        return { ok: true, round: this.round, state: this.state };
+      }
+      case 'live': {
+        this.state = 'live';
+        this.timer = CFG.ROUND_TIME;
+        return { ok: true, round: this.round, state: this.state };
+      }
+      case 'pause': {
+        this.state = 'paused';
+        return { ok: true, state: this.state };
+      }
+      case 'reroll': {
+        // перебрасывает софты всем, не начиная новый раунд
+        for (const p of this.players.values()) this.giveSofts(p, false);
+        this.syncHistoryPlayers();
+        if (!this.history.length) this.recordHistory();
+        return { ok: true, round: this.round };
+      }
+      case 'soft': {
+        const p = this.players.get(Number(cmd.playerId));
+        const id = String(cmd.soft || '');
+        if (!p || !SOFTS[id]) return { ok: false, error: 'нет игрока или софта' };
+        p.softs = [id];
+        this.sendSofts(p, false);
+        this.syncHistoryPlayers();
+        return { ok: true, player: p.name, soft: id };
+      }
+      case 'kick': {
+        const p = this.players.get(Number(cmd.playerId));
+        if (!p) return { ok: false, error: 'нет такого игрока' };
+        this.removePlayer(p.id);
+        return { ok: true };
+      }
+      default:
+        return { ok: false, error: 'неизвестное действие: ' + action };
     }
   }
 

@@ -8,6 +8,17 @@ const { Server } = require('socket.io');
 
 const { Game, CFG } = require('./game');
 const { publicCatalog, LIST, TOTAL_WEIGHT, getDoubleSoftChance } = require('./softs');
+
+// Простейший rate-limit для админских эндпоинтов
+const hits = new Map();
+function rateLimited(ip, key, max, windowMs) {
+  const k = ip + '|' + key;
+  const now = Date.now();
+  const arr = (hits.get(k) || []).filter((t) => now - t < windowMs);
+  arr.push(now);
+  hits.set(k, arr);
+  return arr.length > max;
+}
 const { CONFIG } = require('./config');
 
 const PORT = CONFIG.PORT;
@@ -54,6 +65,58 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Плагин CS2: полная история раздач (только при заданном токене)
+  if (urlPath === '/api/rounds') {
+    if (!CONFIG.ROUNDS_TOKEN) {
+      res.writeHead(403, { 'Content-Type': MIME['.json'] });
+      res.end(JSON.stringify({ error: 'ROUNDS_TOKEN не задан' }));
+      return;
+    }
+    if (req.headers['x-rounds-token'] !== CONFIG.ROUNDS_TOKEN) {
+      res.writeHead(401, { 'Content-Type': MIME['.json'] });
+      res.end(JSON.stringify({ error: 'bad token' }));
+      return;
+    }
+    const body = JSON.stringify({ rounds: game.history });
+    res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+    res.end(body);
+    return;
+  }
+
+  // Плагин CS2: админ-действия. POST /api/admin {"action":"nextround"} (+ заголовок X-Rounds-Token)
+  if (urlPath === '/api/admin' && req.method === 'POST') {
+    const ip = req.socket.remoteAddress || '?';
+    if (rateLimited(ip, 'admin', 20, 60000)) {
+      res.writeHead(429, { 'Content-Type': MIME['.json'] });
+      res.end(JSON.stringify({ error: 'rate limit' }));
+      return;
+    }
+    if (!CONFIG.ROUNDS_TOKEN || req.headers['x-rounds-token'] !== CONFIG.ROUNDS_TOKEN) {
+      res.writeHead(401, { 'Content-Type': MIME['.json'] });
+      res.end(JSON.stringify({ error: 'bad token' }));
+      return;
+    }
+    let raw = '';
+    req.on('data', (c) => {
+      raw += c;
+      if (raw.length > 4096) req.destroy();
+    });
+    req.on('end', () => {
+      let cmd = {};
+      try {
+        cmd = JSON.parse(raw || '{}');
+      } catch {
+        res.writeHead(400, { 'Content-Type': MIME['.json'] });
+        res.end(JSON.stringify({ error: 'bad json' }));
+        return;
+      }
+      const result = game.adminCommand(cmd);
+      res.writeHead(result.ok ? 200 : 400, { 'Content-Type': MIME['.json'] });
+      res.end(JSON.stringify(result));
+    });
+    return;
+  }
+
   if (urlPath === '/api/server') {
     const body = JSON.stringify({
       name: 'CS SOFT SERVER',
@@ -68,6 +131,14 @@ const server = http.createServer((req, res) => {
       softs: LIST.length,
       doubleChance: getDoubleSoftChance(),
     });
+    res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+    res.end(body);
+    return;
+  }
+
+  if (urlPath === '/api/round' || urlPath === '/api/round/current' || urlPath === '/api/rounds/current') {
+    const last = game.history[game.history.length - 1] || null;
+    const body = JSON.stringify({ round: game.round, state: game.state, entry: last });
     res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
     res.end(body);
     return;

@@ -18,6 +18,7 @@ const FALLBACK = {
   DOUBLE_SOFT_CHANCE: 0.15,
   PLAYER_NAME: '',
   ALLOWED_ORIGIN: '*',
+  ROUNDS_TOKEN: '',
 };
 
 // Встроенный разбор .env: строки KEY=VALUE, # — комментарий.
@@ -83,6 +84,7 @@ const CONFIG = {
   DOUBLE_SOFT_CHANCE: num('DOUBLE_SOFT_CHANCE', 0, 1),
   PLAYER_NAME: str('PLAYER_NAME').slice(0, 16),
   ALLOWED_ORIGIN: str('ALLOWED_ORIGIN'),
+  ROUNDS_TOKEN: process.env.ROUNDS_TOKEN || '',
   dotenvLoaded,
 };
 

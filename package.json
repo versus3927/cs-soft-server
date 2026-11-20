@@ -8,7 +8,7 @@
     "start": "node server/index.js",
     "dev": "node server/index.js",
     "env": "node scripts/check-env.js",
-    "test": "node scripts/combat-test.js && node scripts/env-test.js && node scripts/smoke-test.js && node scripts/client-test.js"
+    "test": "node scripts/combat-test.js && node scripts/bridge-test.js && node scripts/env-test.js && node scripts/smoke-test.js && node scripts/client-test.js"
   },
   "engines": {
     "node": ">=18"

@@ -1,0 +1,65 @@
+# ─────────────────────────────────────────────────────────────
+#  НАСТОЯЩИЙ CS2 DEDICATED SERVER (Source 2, Steam App 730)
+#  + мост cs-soft, который каждый раунд бросает игрокам софт
+#
+#  Запуск на VPS (Ubuntu 22.04/24.04, 4+ ГБ RAM, 80 ГБ диска):
+#     cp .env.example .env        # вписать GSLT-токен
+#     docker compose up -d
+#     docker compose logs -f cs2  # первый запуск качает ~60 ГБ
+#
+#  Играть: консоль CS2 (~) →  connect IP.IP.IP.IP:27015
+# ─────────────────────────────────────────────────────────────
+services:
+  # ── сам игровой сервер ──
+  cs2:
+    image: joedwards32/cs2:latest
+    container_name: cs2
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/home/steam/cs2-dedicated
+    ports:
+      - "27015:27015/tcp"   # игровое соединение + RCON
+      - "27015:27015/udp"   # игровой трафик (главное!)
+      - "27020:27020/udp"   # SourceTV / GOTV
+    environment:
+      # мост живёт внутри docker-сети, наружу его порт не нужен
+      CS_SOFT_BRIDGE: "http://cs-soft:3000"
+      CS_SOFT_TOKEN: "${ROUNDS_TOKEN:-}"
+    depends_on:
+      cs-soft:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
+  # ── мост: раздаёт софты по раундам, плагин забирает их отсюда ──
+  cs-soft:
+    build:
+      context: ../..
+      dockerfile: deploy/cs2/Dockerfile.bridge
+    container_name: cs-soft
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      HOST: 0.0.0.0
+      ROUNDS_TOKEN: "${ROUNDS_TOKEN:-change-me-please}"
+      # мост не должен сам двигать раунды: это делает CS2-плагин
+      ROUND_TIME: 60
+    expose:
+      - "3000"
+    # Если хочешь открыть веб-версию (браузерную) наружу — раскомментируй:
+    # ports:
+    #   - "3000:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
