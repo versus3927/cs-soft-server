@@ -49,6 +49,10 @@ const { window } = dom;
 window.HTMLCanvasElement.prototype.getContext = () => makeCtx();
 window.matchMedia = window.matchMedia || (() => ({ matches: false, addListener() {}, removeListener() {} }));
 window.devicePixelRatio = 2;
+Object.defineProperty(window.navigator, 'clipboard', {
+  value: { writeText: () => Promise.resolve() },
+  configurable: true,
+});
 
 // фейковый io
 const handlers = {};
@@ -79,6 +83,21 @@ window.fetch = (url) => {
             { id: 'wallhack', name: 'WALLHACK', file: 'wallhack.dll', rarity: 'epic', color: '#f472b6', rarityLabel: 'EPIC', desc: 'd', icon: '◈', weight: 10 },
           ],
           totalWeight: 18,
+        }),
+    });
+  }
+  if (String(url).includes('/api/server')) {
+    return Promise.resolve({
+      json: () =>
+        Promise.resolve({
+          name: 'CS SOFT SERVER',
+          address: 'localhost:3000',
+          connectAddress: '192.168.0.10:3000',
+          players: 3,
+          maxPlayers: 16,
+          round: 2,
+          state: 'live',
+          softs: 11,
         }),
     });
   }
@@ -172,6 +191,8 @@ setTimeout(() => {
   checks.push(['hud visible', !$('hud').classList.contains('hidden')]);
   checks.push(['menu hidden', $('menu').classList.contains('hidden')]);
   checks.push(['center msg', $('centerMsg').innerHTML.length > 0]);
+  checks.push(['адрес сервера показан', $('svAddr').value.length > 5]);
+  checks.push(['онлайн показан', $('svPlayers').textContent === '3 / 16']);
 
   let ok = true;
   for (const [name, pass] of checks) {

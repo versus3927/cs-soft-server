@@ -72,6 +72,23 @@
             Противники получают свой рандом. Побеждает тот, кому повезло и кто умеет.
           </p>
 
+          <div class="server-card">
+            <div class="sv-row">
+              <span class="sv-label">СЕРВЕР</span>
+              <span class="sv-name">CS SOFT SERVER</span>
+              <span id="svPlayers" class="sv-players">0 / 16</span>
+            </div>
+            <div class="sv-address">
+              <input id="svAddr" readonly value="загрузка..." />
+              <button id="copyAddr" class="sv-copy" type="button">КОПИРОВАТЬ</button>
+            </div>
+            <div class="sv-hint">
+              Заходить нужно <b>по этой ссылке в браузере</b>, а не через консоль Steam:
+              <code>connect IP:порт</code> у браузерной игры не работает.
+              Скинь ссылку другу — он попадёт на этот же сервер.
+            </div>
+          </div>
+
           <label class="field">
             <span>Твой ник</span>
             <input id="nick" maxlength="16" placeholder="например, Neo" autocomplete="off" />

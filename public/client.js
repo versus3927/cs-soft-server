@@ -20,6 +20,53 @@
 
   const isTouch = matchMedia('(hover: none) and (pointer: coarse)').matches;
 
+  // ---------- карточка сервера ----------
+  const svAddr = $('svAddr');
+  const svPlayers = $('svPlayers');
+  const copyBtn = $('copyAddr');
+  const origin = location.origin;
+
+  function setAddr(text) {
+    svAddr.value = text;
+    svAddr.title = text;
+  }
+  setAddr(origin);
+
+  if (copyBtn) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(svAddr.value);
+      } catch {
+        svAddr.select();
+        document.execCommand('copy');
+      }
+      copyBtn.textContent = 'СКОПИРОВАНО';
+      copyBtn.classList.add('done');
+      setTimeout(() => {
+        copyBtn.textContent = 'КОПИРОВАТЬ';
+        copyBtn.classList.remove('done');
+      }, 1600);
+    });
+  }
+
+  function refreshServerInfo() {
+    fetch('/api/server')
+      .then((r) => r.json())
+      .then((d) => {
+        svPlayers.textContent = `${d.players} / ${d.maxPlayers}`;
+        svPlayers.style.color = d.players >= d.maxPlayers ? '#ff4d6d' : '#7cf9b4';
+        // если открыто по localhost — показываем адрес для друзей в той же сети
+        const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])/.test(location.hostname);
+        if (isLocal && d.connectAddress) {
+          setAddr(`http://${d.connectAddress}`);
+          svAddr.parentElement.title = 'локальная сеть';
+        }
+      })
+      .catch(() => {});
+  }
+  refreshServerInfo();
+  setInterval(refreshServerInfo, 5000);
+
   // ---------- состояние ----------
   const S = {
     me: null,

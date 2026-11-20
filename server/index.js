@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 const { Server } = require('socket.io');
 
 const { Game, CFG } = require('./game');
@@ -10,6 +11,18 @@ const { publicCatalog, LIST, TOTAL_WEIGHT, getDoubleSoftChance } = require('./so
 const { CONFIG } = require('./config');
 
 const PORT = CONFIG.PORT;
+
+// Локальный IP в сети — чтобы дать другу адрес вида 192.168.0.10:3000
+function lanAddress() {
+  const nets = os.networkInterfaces();
+  for (const list of Object.values(nets)) {
+    for (const net of list || []) {
+      if (net.family === 'IPv4' && !net.internal) return `${net.address}:${PORT}`;
+    }
+  }
+  return null;
+}
+const LAN_ADDRESS = lanAddress();
 const HOST = CONFIG.HOST;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
@@ -36,6 +49,25 @@ const server = http.createServer((req, res) => {
 
   if (urlPath === '/api/softs') {
     const body = JSON.stringify({ softs: publicCatalog(), totalWeight: TOTAL_WEIGHT });
+    res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+    res.end(body);
+    return;
+  }
+
+  if (urlPath === '/api/server') {
+    const body = JSON.stringify({
+      name: 'CS SOFT SERVER',
+      address: req.headers.host || `localhost:${PORT}`,
+      connectAddress: LAN_ADDRESS || req.headers.host || `localhost:${PORT}`,
+      players: game.players.size,
+      maxPlayers: CFG.MAX_PLAYERS,
+      round: game.round,
+      state: game.state,
+      roundTime: CFG.ROUND_TIME,
+      intermission: CFG.INTERMISSION,
+      softs: LIST.length,
+      doubleChance: getDoubleSoftChance(),
+    });
     res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
     res.end(body);
     return;
