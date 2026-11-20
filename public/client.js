@@ -229,7 +229,7 @@
   }
 
   function updateHud(snap) {
-    $('roundNum').textContent = String(snap.r);
+    $('roundNum').textContent = String(Math.max(1, snap.r));
     $('timer').textContent = Math.ceil(snap.t).toString();
     $('phase').textContent = snap.st === 'live' ? 'РАУНД ИДЁТ' : 'ПЕРЕРЫВ';
     $('phase').parentElement.classList.toggle('hurry', snap.st === 'live' && snap.t <= 10);

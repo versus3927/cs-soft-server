@@ -146,7 +146,7 @@ class Game {
     };
     this.players.set(p.id, p);
     this.assignSpawn(p);
-    this.giveSofts(p, true);
+    this.giveSofts(p, false);
     this.pushEvent({ type: 'join', name: p.name, color: p.color });
     socket.emit('welcome', {
       id: p.id,
@@ -155,7 +155,8 @@ class Game {
       config: CFG,
       map: { tile: map.TILE, rows: map.rows, width: map.WORLD_WIDTH, height: map.WORLD_HEIGHT },
     });
-    this.sendSofts(p, true);
+    // софт текущего раунда сообщаем после welcome, чтобы клиент был готов
+    setImmediate(() => this.sendSofts(p, true));
     return p;
   }
 
