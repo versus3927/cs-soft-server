@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>CS SOFT SERVER — рандомный софт каждый раунд</title>
+    <meta name="description" content="Браузерный CS-сервер: каждому игроку каждый раунд выдаётся случайный софт — аимбот, вх, банихоп, без отдачи и другие." />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game"></canvas>
+
+      <!-- HUD -->
+      <div id="hud" class="hidden">
+        <div class="hud-top">
+          <div class="hud-box round-box">
+            <span class="label">РАУНД</span>
+            <span id="roundNum" class="big">1</span>
+          </div>
+          <div class="hud-box timer-box">
+            <span id="phase" class="label">РАЗМИНКА</span>
+            <span id="timer" class="big">3</span>
+          </div>
+          <div class="hud-box score-box">
+            <span class="label">K / D</span>
+            <span id="kd" class="big">0 / 0</span>
+          </div>
+        </div>
+
+        <div class="hud-left">
+          <div id="softPanel" class="soft-panel">
+            <div class="soft-panel-title">ТВОЙ СОФТ НА РАУНД</div>
+            <div id="softList" class="soft-list"></div>
+          </div>
+          <div id="statusLine" class="status-line"></div>
+        </div>
+
+        <div class="hud-bottom">
+          <div class="hp-wrap">
+            <div class="hp-bar"><div id="hpFill" class="hp-fill"></div></div>
+            <div id="hpText" class="hp-text">100</div>
+          </div>
+          <div class="ammo-wrap">
+            <span id="ammo" class="ammo">25</span><span class="ammo-max">/ 25</span>
+            <div id="reload" class="reload hidden">ПЕРЕЗАРЯДКА</div>
+          </div>
+        </div>
+
+        <div class="radar-wrap">
+          <canvas id="radar" width="200" height="200"></canvas>
+        </div>
+
+        <div id="killfeed" class="killfeed"></div>
+        <div id="centerMsg" class="center-msg"></div>
+        <div id="spectate" class="spectate hidden">
+          <div class="spec-title">ТЫ УБИТ</div>
+          <div class="spec-sub">респавн через <span id="respawnT">2.5</span>с</div>
+        </div>
+      </div>
+
+      <!-- Меню -->
+      <div id="menu" class="overlay">
+        <div class="panel">
+          <div class="logo">
+            <span class="logo-cs">CS</span><span class="logo-soft">SOFT</span>
+            <span class="logo-dot">SERVER</span>
+          </div>
+          <p class="tag">
+            Каждый раунд игра бросает тебе кубик софта: <b>аимбот</b>, <b>вх</b>,
+            <b>банихоп</b>, <b>быстрая стрельба</b>, <b>без отдачи</b> и ещё куча всего.
+            Противники получают свой рандом. Побеждает тот, кому повезло и кто умеет.
+          </p>
+
+          <label class="field">
+            <span>Твой ник</span>
+            <input id="nick" maxlength="16" placeholder="например, Neo" autocomplete="off" />
+          </label>
+          <div class="nick-error" id="nickError"></div>
+
+          <button id="playBtn" class="play">В ИГРУ</button>
+
+          <div class="controls">
+            <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> движение</div>
+            <div><kbd>ЛКМ</kbd> стрельба</div>
+            <div><kbd>R</kbd> перезарядка</div>
+            <div><kbd>Esc</kbd> пауза</div>
+          </div>
+
+          <details class="softbook">
+            <summary>Пул софтов (всего <span id="softTotal">11</span>)</summary>
+            <div id="softBook" class="softbook-list"></div>
+          </details>
+        </div>
+      </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/client.js"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "cs-soft-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CS-soft: браузерный CS-подобный сервер, где каждому игроку каждый раунд выдаётся случайный софт",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test": "node scripts/combat-test.js && node scripts/smoke-test.js && node scripts/client-test.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "jsdom": "^31.0.1",
+    "socket.io-client": "^4.8.4"
+  }
+}
