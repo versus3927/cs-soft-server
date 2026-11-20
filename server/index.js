@@ -6,9 +6,11 @@ const path = require('path');
 const { Server } = require('socket.io');
 
 const { Game, CFG } = require('./game');
-const { publicCatalog, LIST, TOTAL_WEIGHT } = require('./softs');
+const { publicCatalog, LIST, TOTAL_WEIGHT, getDoubleSoftChance } = require('./softs');
+const { CONFIG } = require('./config');
 
-const PORT = Number(process.env.PORT) || 3000;
+const PORT = CONFIG.PORT;
+const HOST = CONFIG.HOST;
 const PUBLIC_DIR = path.join(__dirname, '..', 'public');
 
 const MIME = {
@@ -68,7 +70,7 @@ const server = http.createServer((req, res) => {
 });
 
 const io = new Server(server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: CONFIG.ALLOWED_ORIGIN, methods: ['GET', 'POST'] },
   pingInterval: 5000,
   pingTimeout: 10000,
 });
@@ -90,10 +92,14 @@ io.on('connection', (socket) => {
   socket.on('disconnect', () => game.removePlayer(p.id));
 });
 
-server.listen(PORT, '0.0.0.0', () => {
-  console.log(`[cs-soft] сервер слушает 0.0.0.0:${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`[cs-soft] сервер слушает ${HOST}:${PORT}`);
   console.log(`[cs-soft] софтов в пуле: ${LIST.length}, суммарный вес: ${TOTAL_WEIGHT}`);
   console.log(`[cs-soft] раунд: ${CFG.ROUND_TIME}s игры + ${CFG.INTERMISSION}s перерыв`);
+  console.log(
+    `[cs-soft] двойной дроп: ${Math.round(getDoubleSoftChance() * 100)}%, ` +
+      `макс. игроков: ${CFG.MAX_PLAYERS}`
+  );
 });
 
 process.on('SIGTERM', () => {

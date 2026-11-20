@@ -113,7 +113,17 @@ const RARITY = {
 
 const LIST = Object.values(SOFTS);
 const TOTAL_WEIGHT = LIST.reduce((s, x) => s + x.weight, 0);
-const SECOND_SOFT_CHANCE = 0.15; // «двойной дроп»
+// «двойной дроп»: доля игроков, у которых два софта. Настраивается через DOUBLE_SOFT_CHANCE
+let SECOND_SOFT_CHANCE = 0.15;
+
+function setDoubleSoftChance(v) {
+  if (Number.isFinite(v)) SECOND_SOFT_CHANCE = Math.min(Math.max(v, 0), 1);
+  return SECOND_SOFT_CHANCE;
+}
+
+function getDoubleSoftChance() {
+  return SECOND_SOFT_CHANCE;
+}
 
 function rollOne(exclude) {
   let pool = LIST;
@@ -149,4 +159,13 @@ function publicCatalog() {
   }));
 }
 
-module.exports = { SOFTS, RARITY, LIST, TOTAL_WEIGHT, rollSofts, publicCatalog };
+module.exports = {
+  SOFTS,
+  RARITY,
+  LIST,
+  TOTAL_WEIGHT,
+  rollSofts,
+  publicCatalog,
+  setDoubleSoftChance,
+  getDoubleSoftChance,
+};

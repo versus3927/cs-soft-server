@@ -1,13 +1,14 @@
 'use strict';
 
 const map = require('./map');
-const { SOFTS, rollSofts } = require('./softs');
+const { SOFTS, rollSofts, setDoubleSoftChance } = require('./softs');
+const { CONFIG } = require('./config');
 
 const CFG = {
   TICK: 30,
   SNAP_EVERY: 1, // 30 снапшотов/с
-  ROUND_TIME: 60,
-  INTERMISSION: 8,
+  ROUND_TIME: CONFIG.ROUND_TIME,
+  INTERMISSION: CONFIG.INTERMISSION,
   MAX_HP: 100,
   RADIUS: 12,
   BASE_SPEED: 200,
@@ -25,12 +26,10 @@ const CFG = {
   AIMBOT_RANGE: 620,
   AIMBOT_FOV: 1.5,
   TRIGGER_CONE: 0.06,
-  MAX_PLAYERS: 16,
+  MAX_PLAYERS: CONFIG.MAX_PLAYERS,
 };
 
-// Переопределения для тестов/тюнинга: ROUND_TIME=10 INTERMISSION=3 npm start
-if (process.env.ROUND_TIME) CFG.ROUND_TIME = Number(process.env.ROUND_TIME);
-if (process.env.INTERMISSION) CFG.INTERMISSION = Number(process.env.INTERMISSION);
+setDoubleSoftChance(CONFIG.DOUBLE_SOFT_CHANCE);
 
 const NAMES_POOL = [
   'Neo', 'Trinity', 'Morpheus', 'Cypher', 'Tank', 'Dozer', 'Switch', 'Apoc',
@@ -119,13 +118,17 @@ class Game {
     }
     const used = new Set([...this.players.values()].map((p) => p.name));
     let name = 'Player';
-    for (const n of NAMES_POOL) {
-      if (!used.has(n)) {
-        name = n;
-        break;
+    if (CONFIG.PLAYER_NAME && !used.has(CONFIG.PLAYER_NAME)) {
+      name = CONFIG.PLAYER_NAME;
+    } else {
+      for (const n of NAMES_POOL) {
+        if (!used.has(n)) {
+          name = n;
+          break;
+        }
       }
+      if (used.has(name)) name = 'Player' + nextPlayerId;
     }
-    if (used.has(name)) name = 'Player' + nextPlayerId;
 
     const hue = Math.floor(Math.random() * 360);
     const p = {
