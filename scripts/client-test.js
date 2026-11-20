@@ -86,6 +86,18 @@ window.fetch = (url) => {
         }),
     });
   }
+  if (String(url).includes('/api/stats/me')) {
+    return Promise.resolve({
+      json: () =>
+        Promise.resolve({
+          source: 'db',
+          player: 'TestBot',
+          topSofts: [{ soft_id: 'aimbot', times: 4 }],
+          place: 2,
+          roundsPlayed: 7,
+        }),
+    });
+  }
   if (String(url).includes('/api/server')) {
     return Promise.resolve({
       json: () =>
@@ -193,6 +205,9 @@ setTimeout(() => {
   checks.push(['center msg', $('centerMsg').innerHTML.length > 0]);
   checks.push(['адрес сервера показан', $('svAddr').value.length > 5]);
   checks.push(['онлайн показан', $('svPlayers').textContent === '3 / 16']);
+  checks.push(['статистика: место', $('ssPlace').textContent === '#2']);
+  checks.push(['статистика: раунды', $('ssRounds').textContent === '7']);
+  checks.push(['статистика: источник БД', $('ssSrc').textContent === 'БД']);
 
   let ok = true;
   for (const [name, pass] of checks) {

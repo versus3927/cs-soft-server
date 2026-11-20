@@ -940,3 +940,47 @@ kbd {
   }
   .rt-name { min-width: 54px; }
 }
+
+/* ---------- строка статистики ---------- */
+.stats-strip {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%) translateY(-38px);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 12px;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  background: rgba(8, 10, 16, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  backdrop-filter: blur(6px);
+  white-space: nowrap;
+}
+
+.stats-strip b {
+  color: var(--accent2);
+  font-weight: 700;
+}
+
+.ss-sep {
+  opacity: 0.4;
+}
+
+.ss-src {
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  color: #6b7a8d;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  padding: 0 3px;
+}
+
+@media (max-width: 760px) {
+  .stats-strip {
+    display: none;
+  }
+}

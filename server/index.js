@@ -117,6 +117,79 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Статистика из базы: история раундов, лидерборд, личная статистика
+  if (urlPath === '/api/stats/me') {
+    const name = new URL(req.url, 'http://x').searchParams.get('name') || '';
+    const src = store || game;
+    Promise.resolve(src.playerStats(name, 3))
+      .then(async (stats) => {
+        const lb = await src.leaderboard(50);
+        const place = lb.findIndex((r) => r.player_name.toLowerCase() === name.toLowerCase()) + 1;
+        res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+        res.end(
+          JSON.stringify({
+            source: src.kind || 'memory',
+            player: name,
+            topSofts: stats,
+            place: place || null,
+            roundsPlayed: place ? lb[place - 1].rounds : 0,
+          })
+        );
+      })
+      .catch((e) => {
+        res.writeHead(500, { 'Content-Type': MIME['.json'] });
+        res.end(JSON.stringify({ error: e.message }));
+      });
+    return;
+  }
+
+  if (urlPath === '/api/stats/rounds') {
+    const limit = Math.min(Number(new URL(req.url, 'http://x').searchParams.get('limit')) || 10, 100);
+    const src = store && store.available ? store : game;
+    Promise.resolve(
+      src === game ? game.history.slice(-limit).reverse() : src.recentRounds(limit)
+    )
+      .then((rows) => {
+        res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ source: src === game ? 'memory' : 'db', rounds: rows }));
+      })
+      .catch((e) => {
+        res.writeHead(500, { 'Content-Type': MIME['.json'] });
+        res.end(JSON.stringify({ error: e.message }));
+      });
+    return;
+  }
+
+  if (urlPath === '/api/stats/player') {
+    const name = new URL(req.url, 'http://x').searchParams.get('name') || '';
+    const src = store || game;
+    Promise.resolve(src.playerStats(name, 20))
+      .then((rows) => {
+        res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ source: src.kind || 'memory', player: name, stats: rows }));
+      })
+      .catch((e) => {
+        res.writeHead(500, { 'Content-Type': MIME['.json'] });
+        res.end(JSON.stringify({ error: e.message }));
+      });
+    return;
+  }
+
+  if (urlPath === '/api/stats/leaderboard') {
+    const limit = Math.min(Number(new URL(req.url, 'http://x').searchParams.get('limit')) || 10, 50);
+    const src = store || game;
+    Promise.resolve(src.leaderboard(limit))
+      .then((rows) => {
+        res.writeHead(200, { 'Content-Type': MIME['.json'], 'Cache-Control': 'no-store' });
+        res.end(JSON.stringify({ source: src.kind || 'memory', leaderboard: rows }));
+      })
+      .catch((e) => {
+        res.writeHead(500, { 'Content-Type': MIME['.json'] });
+        res.end(JSON.stringify({ error: e.message }));
+      });
+    return;
+  }
+
   if (urlPath === '/api/server') {
     const body = JSON.stringify({
       name: 'CS SOFT SERVER',
@@ -178,7 +251,19 @@ const io = new Server(server, {
   pingTimeout: 10000,
 });
 
+const { createStore } = require('./storage/db');
+
+let store = null;
 const game = new Game(io);
+
+// база подключается параллельно: игра не ждёт её готовности
+createStore({ game: process.env.GAME_ID || 'cs-soft', logger: console })
+  .then((s) => {
+    store = s;
+    game.store = s;
+    console.log(`[db] активное хранилище: ${s.kind}`);
+  })
+  .catch((e) => console.warn('[db] старт хранилища не удался:', e.message));
 
 io.on('connection', (socket) => {
   const p = game.addPlayer(socket);

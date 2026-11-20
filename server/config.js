@@ -19,6 +19,8 @@ const FALLBACK = {
   PLAYER_NAME: '',
   ALLOWED_ORIGIN: '*',
   ROUNDS_TOKEN: '',
+  DATABASE_URL: '',
+  GAME_ID: 'cs-soft',
 };
 
 // Встроенный разбор .env: строки KEY=VALUE, # — комментарий.
@@ -85,6 +87,8 @@ const CONFIG = {
   PLAYER_NAME: str('PLAYER_NAME').slice(0, 16),
   ALLOWED_ORIGIN: str('ALLOWED_ORIGIN'),
   ROUNDS_TOKEN: process.env.ROUNDS_TOKEN || '',
+  DATABASE_URL: process.env.DATABASE_URL || '',
+  GAME_ID: process.env.GAME_ID || 'cs-soft',
   dotenvLoaded,
 };
 

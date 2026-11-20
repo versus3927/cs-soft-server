@@ -93,8 +93,9 @@ function visible(ax, ay, bx, by) {
 let nextPlayerId = 1;
 
 class Game {
-  constructor(io) {
+  constructor(io, opts = {}) {
     this.io = io;
+    this.store = opts.store || null;
     this.players = new Map();
     this.bullets = [];
     this.events = [];
@@ -190,6 +191,7 @@ class Game {
     this.players.delete(id);
     this.pushEvent({ type: 'leave', name: p.name, color: p.color });
     this.syncHistoryPlayers();
+    this.persist(this.history[this.history.length - 1]);
   }
 
   assignSpawn(p) {
@@ -253,7 +255,16 @@ class Game {
     };
     this.history.push(entry);
     if (this.history.length > this.maxHistory) this.history.shift();
+    this.persist(entry);
     return entry;
+  }
+
+  // сохраняем в базу, не блокируя игровой цикл; ошибки не должны ронять игру
+  persist(entry) {
+    if (!this.store || !entry) return;
+    Promise.resolve(this.store.saveRound(entry)).catch((e) => {
+      console.warn('[db] не сохранил раунд', entry.round, '-', e.message);
+    });
   }
 
   giveSofts(p, announce) {
@@ -566,6 +577,32 @@ class Game {
         });
       }
     }
+  }
+
+  // ---------- статистика (когда базы нет — считаем по своей истории) ----------
+  playerStats(name, limit = 20) {
+    const counts = new Map();
+    for (const r of this.history) {
+      for (const p of r.players) {
+        if (name && p.name.toLowerCase() !== String(name).toLowerCase()) continue;
+        for (const s of p.softs) counts.set(s.id, (counts.get(s.id) || 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .map(([soft_id, times]) => ({ soft_id, times }))
+      .sort((a, b) => b.times - a.times)
+      .slice(0, limit);
+  }
+
+  leaderboard(limit = 10) {
+    const counts = new Map();
+    for (const r of this.history) {
+      for (const p of r.players) counts.set(p.name, (counts.get(p.name) || 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([player_name, rounds]) => ({ player_name, rounds }))
+      .sort((a, b) => b.rounds - a.rounds)
+      .slice(0, limit);
   }
 
   // ---------- админ-команды для CS2-плагина ----------

@@ -180,6 +180,7 @@
       hud.classList.remove('hidden');
       S.joined = true;
       if (nickInput.value.trim()) socket.emit('name', nickInput.value.trim());
+      startStatsPolling();
       if (isTouch) buildTouchControls();
     });
 
@@ -191,6 +192,10 @@
     socket.on('softs', (d) => {
       S.softs = d.softs;
       renderSofts(d.softs, d.round);
+    });
+
+    socket.on('renamed', (d) => {
+      refreshMyStats();
     });
 
     socket.on('snap', (snap) => {
@@ -273,6 +278,32 @@
     $('statusLine').textContent = list.length > 1
       ? 'двойной дроп: два софта одновременно'
       : '';
+  }
+
+  // ---------- статистика из базы ----------
+  let statsTimer = null;
+  function refreshMyStats() {
+    const name = (S.name || (nickInput.value || '').trim() || '').trim();
+    if (!name) return;
+    fetch(`/api/stats/me?name=${encodeURIComponent(name)}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const place = $('ssPlace');
+        if (!place) return;
+        place.textContent = d.place ? `#${d.place}` : '—';
+        $('ssRounds').textContent = String(d.roundsPlayed || 0);
+        $('ssTopSoft').textContent = d.topSofts && d.topSofts.length ? d.topSofts[0].soft_id : '—';
+        $('ssSrc').textContent = d.source === 'db' ? 'БД' : 'ПАМЯТЬ';
+        $('ssSrc').title =
+          d.source === 'db' ? 'статистика из PostgreSQL' : 'DATABASE_URL не задан, считаем в памяти';
+      })
+      .catch(() => {});
+  }
+
+  function startStatsPolling() {
+    clearInterval(statsTimer);
+    refreshMyStats();
+    statsTimer = setInterval(refreshMyStats, 15000);
   }
 
   function updateHud(snap) {

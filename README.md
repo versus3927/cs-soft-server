@@ -116,6 +116,45 @@ API, если нужен адрес программно: `GET /api/server` →
  "players":3,"maxPlayers":16,"round":2,"state":"live","softs":11,"doubleChance":0.15}
 ```
 
+
+## База данных (Railway Postgres и не только)
+
+История раундов и статистика игроков пишутся в PostgreSQL, если задан `DATABASE_URL`.
+
+**На Railway:**
+1. В проекте: **New → Database → PostgreSQL**.
+2. Открой сервис приложения → **Variables** → **New Variable** → **Add Reference** → `DATABASE_URL` из сервиса Postgres.
+   (Railway сам подставит строку подключения по приватной сети — наружу порт открывать не нужно.)
+3. Redeploy. В логах увидишь `[db] PostgreSQL подключён, схема применена`.
+
+Схема создаётся сама при старте (`CREATE TABLE IF NOT EXISTS`): `rounds`, `round_softs`, `player_soft_stats`.
+
+**Локально / на VPS:**
+```bash
+docker run -d --name cssoft-pg -e POSTGRES_PASSWORD=pass -p 5432:5432 postgres:16
+DATABASE_URL=postgresql://postgres:pass@localhost:5432/postgres npm start
+npm run db:check      # проверка подключения и содержимого
+```
+
+**Без базы всё тоже работает:** `DATABASE_URL` пустой → история живёт в памяти (последние 200 раундов),
+ничего не падает. Если база отваливается во время игры, раунд просто не сохраняется — игра идёт дальше.
+
+Что появляется с базой:
+
+| Эндпоинт | Что отдаёт |
+|---|---|
+| `GET /api/stats/me?name=Ник` | место в лидерборде, число раундов, любимые софты |
+| `GET /api/stats/rounds?limit=20` | история раундов с дропами |
+| `GET /api/stats/player?name=Ник` | сколько раз какой софт выпадал |
+| `GET /api/stats/leaderboard` | топ игроков по числу раундов |
+
+В игре сверху появляется строка: `место: #2 · раундов: 7 · чаще всего: aimbot · БД`
+(если базы нет — вместо `БД` будет `ПАМЯТЬ`).
+
+**Чего база не решает для настоящего CS2:** Railway не пробрасывает UDP и не даёт 60 ГБ под образ игры
+(volume на Hobby — до 5 ГБ, на Pro — до 1 ТБ). Поэтому сам игровой сервер CS2 всё равно ставится на VPS
+(см. [deploy/cs2/README.md](deploy/cs2/README.md)), а Railway может держать базу и веб-часть.
+
 ## Управление
 
 | Действие | Клавиша |
